@@ -1,4 +1,4 @@
-# YouTube Engagement Stats
+# YouTube Stats
 
 A Manifest V3 Chrome extension that shows **like**, **dislike**, and **comment**
 counts under video cards on YouTube, on the watch page, and on Shorts.
@@ -13,7 +13,7 @@ No build step, no framework, no API key required from you.
 
 ## 1. What it does
 
-Adds a small, YouTube-styled row of engagement stats directly beneath each
+Adds a small, YouTube-styled row of stats directly beneath each
 video's existing metadata (below "3.4K views • 2 days ago"), and beneath the
 metadata on the watch page.
 
@@ -46,7 +46,7 @@ long as they link to a video.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode** (top-right toggle).
 4. Click **Load unpacked**.
-5. Select the `youtube-engagement-stats` folder.
+5. Select the `youtube-stats` folder.
 6. Open or reload `youtube.com`.
 
 ## 5. How likes are obtained
