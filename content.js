@@ -1,5 +1,5 @@
 /**
- * YouTube Engagement Stats — content.js
+ * YouTube Stats — content.js
  *
  * Adds like / dislike / comment counts under video cards, on the watch
  * page, and on Shorts.
@@ -38,8 +38,8 @@
     FETCH_TIMEOUT_MS: 8000,
     MUTATION_DEBOUNCE_MS: 250,
     INTERSECTION_ROOT_MARGIN: "600px 0px 600px 0px", // prefetch a bit before entering view
-    MARKER_ATTR: "data-yt-engagement-stats",
-    CONTAINER_CLASS: "yt-engagement-stats",
+    MARKER_ATTR: "data-yt-stats",
+    CONTAINER_CLASS: "yt-stats",
   };
 
   // ============================================================
@@ -47,13 +47,13 @@
   // ============================================================
   const Logger = {
     log(...args) {
-      if (Config.DEBUG) console.log("[YT Engagement]", ...args);
+      if (Config.DEBUG) console.log("[YT Stats]", ...args);
     },
     warn(...args) {
-      if (Config.DEBUG) console.warn("[YT Engagement]", ...args);
+      if (Config.DEBUG) console.warn("[YT Stats]", ...args);
     },
     error(...args) {
-      if (Config.DEBUG) console.error("[YT Engagement]", ...args);
+      if (Config.DEBUG) console.error("[YT Stats]", ...args);
     },
   };
 
@@ -236,40 +236,64 @@
   const StatsFetcher = {
     /** Pulls the raw JSON text of `var ytInitialData = {...};` out of an HTML string. */
     extractInitialDataJson(html) {
-      const marker = "ytInitialData";
-      const idx = html.indexOf(marker);
-      if (idx === -1) return null;
-      const braceStart = html.indexOf("{", idx);
-      if (braceStart === -1) return null;
-      let depth = 0;
-      for (let i = braceStart; i < html.length; i++) {
-        const ch = html[i];
-        if (ch === "{") depth++;
-        else if (ch === "}") {
-          depth--;
-          if (depth === 0) {
-            return html.slice(braceStart, i + 1);
-          }
+        const marker = "ytInitialData";
+        const idx = html.indexOf(marker);
+        if (idx === -1) return null;
+        const braceStart = html.indexOf("{", idx);
+        if (braceStart === -1) return null;
+
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+
+        for (let i = braceStart; i < html.length; i++) {
+            const ch = html[i];
+            
+            if (escape) {
+                escape = false;
+                continue;
+            }
+            if (ch === "\\") {
+                escape = true;
+                continue;
+            }
+            if (ch === '"') {
+                inString = !inString;
+                continue;
+            }
+
+            if (!inString) {
+                if (ch === "{") depth++;
+                else if (ch === "}") {
+                    depth--;
+                    if (depth === 0) {
+                        const jsonStr = html.slice(braceStart, i + 1);
+                        try {
+                            return JSON.parse(jsonStr);
+                        } catch (e) {
+                            return jsonStr; // Fallback to string if parse fails
+                        }
+                    }
+                }
+            }
         }
-      }
-      return null;
+        return null;
     },
 
     /** Best-effort like-count extraction. Returns integer or null. */
-    parseLikeCount(html) {
-      // Primary: accessibility label on the like toggle button, e.g.
-      // "accessibilityData":{"label":"125,432 likes"}
-      const m1 = html.match(/"accessibilityData":\{"label":"([\d,]+) likes?"\}/i);
-      if (m1) return NumberFormatter.parseToNumber(m1[1]);
+    parseLikeCount(dataOrHtml) {
+        const jsonStr = typeof dataOrHtml === "string" ? dataOrHtml : JSON.stringify(dataOrHtml);
+        if (!jsonStr) return null;
 
-      // Fallback: compact label sometimes rendered directly on the button,
-      // e.g. "text":{"simpleText":"125K"} immediately following a like glyph
-      // context. This is heuristic and may over/under-match; only used if
-      // the primary pattern is absent.
-      const m2 = html.match(/like this video along with ([\d,]+) other people/i);
-      if (m2) return NumberFormatter.parseToNumber(m2[1]);
+        // Pattern 1: "accessibilityText": "like this video along with 11,189 other people"
+        const m1 = jsonStr.match(/like this video along with ([\d,.]+)\s+other people/i);
+        if (m1) return NumberFormatter.parseToNumber(m1[1]);
 
-      return null;
+        // Pattern 2: "label": "125,432 likes"
+        const m2 = jsonStr.match(/"label":\s*"([\d,.]+)\s*likes?"/i);
+        if (m2) return NumberFormatter.parseToNumber(m2[1]);
+
+        return null;
     },
 
     /**
@@ -279,30 +303,51 @@
      * the caller correctly falls back to displaying N/A rather than
      * guessing.
      */
-    parseCommentCount(html) {
-      // Pattern 1: accessibility label, mirrors the like-count approach,
-      // e.g. "accessibilityData":{"label":"12,431 Comments"}
-      const m1 = html.match(/"accessibilityData":\{"label":"([\d,.]+[KMB]?) Comments?"\}/i);
-      if (m1) return NumberFormatter.parseToNumber(m1[1]);
+    parseCommentCount(dataOrHtml) {
+        if (!dataOrHtml) return null;
+        // Option A: If we have a parsed JSON object, perform key-based traversal first
+        if (typeof dataOrHtml === "object") {
+            try {
+                const panels = dataOrHtml?.engagementPanels || [];
+                for (const panel of panels) {
+                    const renderer = panel?.engagementPanelSectionListRenderer;
+                    if (
+                        renderer?.panelIdentifier === "engagement-panel-comments-section" ||
+                        renderer?.targetId === "engagement-panel-comments-section"
+                    ) {
+                        // Check for count text inside header
+                        const countText = renderer?.header?.engagementPanelTitleHeaderRenderer?.contextualInfo?.runs?.[0]?.text;
+                        if (countText) {
+                            const num = NumberFormatter.parseToNumber(countText);
+                            if (num !== null) return num;
+                        }
+                    }
+                }
+            } catch (e) {
+            // Fall through to regex
+            }
+        }
 
-      // Pattern 2: comments header count text,
-      // e.g. "commentsHeaderRenderer":{"countText":{"runs":[{"text":"12K Comments"}]}}
-      const m2 = html.match(
-        /"commentsHeaderRenderer":\{"countText":\{"runs":\[\{"text":"([\d,.]+[KMB]?)\s*Comments?"?\}\]/i
-      );
-      if (m2) return NumberFormatter.parseToNumber(m2[1]);
+        // Option B: Deep regex match over the stringified JSON
+        const jsonStr = typeof dataOrHtml === "string" ? dataOrHtml : JSON.stringify(dataOrHtml);
 
-      // Pattern 3: contextual info runs, e.g.
-      // "contextualInfo":{"runs":[{"text":"12,431 Comments"}]}
-      const m3 = html.match(/"contextualInfo":\{"runs":\[\{"text":"([\d,.]+[KMB]?)\s*Comments?"\}\]/i);
-      if (m3) return NumberFormatter.parseToNumber(m3[1]);
+        // Pattern 1: Match engagement panel title or contextual runs, e.g., "12,431 Comments" or "12K Comments"
+        const m1 = jsonStr.match(/"contextualInfo":\s*\{\s*"runs":\s*\[\s*\{\s*"text":\s*"([\d,.]+[KMB]?)\s*Comments?"/i);
+        if (m1) return NumberFormatter.parseToNumber(m1[1]);
 
-      // Pattern 4 (older/alternate structure): plain commentCount simpleText,
-      // e.g. "commentCount":{"simpleText":"12,431"}
-      const m4 = html.match(/"commentCount":\{"simpleText":"([\d,.]+[KMB]?)"\}/i);
-      if (m4) return NumberFormatter.parseToNumber(m4[1]);
+        // Pattern 2: commentsHeaderRenderer countText
+        const m2 = jsonStr.match(/"commentsHeaderRenderer":\s*\{[^}]*"countText":\s*\{\s*"runs":\s*\[\s*\{\s*"text":\s*"([\d,.]+[KMB]?)\s*Comments?"/i);
+        if (m2) return NumberFormatter.parseToNumber(m2[1]);
 
-      return null;
+        // Pattern 3: Generic accessibility label matching
+        const m3 = jsonStr.match(/"label":\s*"([\d,.]+[KMB]?)\s*Comments?"/i);
+        if (m3) return NumberFormatter.parseToNumber(m3[1]);
+
+        // Pattern 4: Plain numeric commentCount
+        const m4 = jsonStr.match(/"commentCount":\s*\{\s*"simpleText":\s*"([\d,.]+[KMB]?)"/i);
+        if (m4) return NumberFormatter.parseToNumber(m4[1]);
+
+        return null;
     },
 
     /**
@@ -319,12 +364,17 @@
           signal: controller.signal,
         });
         if (!res.ok) return { likes: null, comments: null };
+
         const html = await res.text();
-        const likes = Config.ENABLE_LIKES ? this.parseLikeCount(html) : null;
-        const comments = Config.ENABLE_COMMENTS ? this.parseCommentCount(html) : null;
+		const initialData = this.extractInitialDataJson(html) || html;
+
+        const likes = Config.ENABLE_LIKES ? this.parseLikeCount(initialData) : null;
+        const comments = Config.ENABLE_COMMENTS ? this.parseCommentCount(initialData) : null;
+
         if (Config.ENABLE_COMMENTS && comments == null) {
           Logger.warn("Comment count pattern did not match for", videoId, "— YouTube markup may have changed.");
         }
+
         return { likes, comments };
       } catch (err) {
         Logger.warn("fetchLikesAndComments failed", videoId, err);
@@ -473,13 +523,13 @@
       const addItem = (iconSvg, value, label) => {
         if (value == null) return;
         const item = document.createElement("span");
-        item.className = "yt-engagement-item";
+        item.className = "yt-stats-item";
         item.title = label;
         const icon = document.createElement("span");
-        icon.className = "yt-engagement-icon";
+        icon.className = "yt-stats-icon";
         icon.innerHTML = iconSvg; // static, trusted, inline SVG constants only
         const text = document.createElement("span");
-        text.className = "yt-engagement-value";
+        text.className = "yt-stats-value";
         text.textContent = String(value); // never innerHTML for API-derived text
         item.appendChild(icon);
         item.appendChild(text);
@@ -521,6 +571,7 @@
       }
 
       const metadataSelectors = [
+        ".ytLockupMetadataViewModelTitle",
         "#metadata-line",
         "ytd-video-meta-block #metadata",
         "#metadata",

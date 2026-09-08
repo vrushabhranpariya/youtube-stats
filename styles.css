@@ -1,76 +1,106 @@
-.yt-engagement-stats {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 4px;
-  font-size: 1.2rem;
-  line-height: 1.8rem;
-  font-family: "Roboto", "Arial", sans-serif;
-  color: var(--yt-spec-text-secondary, #606060);
-  user-select: none;
+.yt-stats {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-top: 4px;
+	font-size: 1.2rem;
+	line-height: 1.8rem;
+	font-family: "Roboto", "Arial", sans-serif;
+	color: var(--yt-spec-text-secondary, #606060);
+	user-select: none;
 }
 
-html[dark] .yt-engagement-stats,
-[dark] .yt-engagement-stats {
-  color: var(--yt-spec-text-secondary, #aaaaaa);
+html[dark] .yt-stats,
+[dark] .yt-stats {
+	color: var(--yt-spec-text-secondary, #aaaaaa);
 }
 
-.yt-engagement-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 4px;
-  border-radius: 8px;
-  transition: background-color 0.15s ease;
-  white-space: nowrap;
+.yt-stats-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 1px 4px;
+	border-radius: 8px;
+	transition: background-color 0.15s ease;
+	white-space: nowrap;
 }
 
-.yt-engagement-item:hover {
-  background-color: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.05));
+.yt-stats-item:hover {
+	background-color: var(--yt-spec-badge-chip-background, rgba(0, 0, 0, 0.05));
 }
 
-html[dark] .yt-engagement-item:hover,
-[dark] .yt-engagement-item:hover {
-  background-color: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, 0.1));
+html[dark] .yt-stats-item:hover,
+[dark] .yt-stats-item:hover {
+	background-color: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, 0.1));
 }
 
-.yt-engagement-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  opacity: 0.85;
+.yt-stats-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	opacity: 0.85;
 }
 
-.yt-engagement-icon svg {
-  display: block;
-  width: 100%;
-  height: 100%;
+.yt-stats-icon svg {
+	display: block;
+	width: 100%;
+	height: 100%;
 }
 
-.yt-engagement-value {
-  font-size: 1.2rem;
-  line-height: 1.6rem;
+.yt-stats-value {
+	font-size: 1.2rem;
+	line-height: 1.6rem;
 }
 
 /* Compact rendering inside Shorts / narrow contexts */
-ytd-reel-item-renderer .yt-engagement-stats,
-ytd-shorts .yt-engagement-stats {
-  gap: 6px;
-  font-size: 1.1rem;
-  margin-top: 2px;
+ytd-reel-item-renderer .yt-stats,
+ytd-shorts .yt-stats {
+	gap: 6px;
+	font-size: 1.1rem;
+	margin-top: 2px;
 }
 
 /* Watch page: slightly larger, sits below the title/actions metadata row */
-ytd-watch-metadata .yt-engagement-stats {
-  margin-top: 8px;
-  padding-top: 4px;
-  border-top: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
+ytd-watch-metadata .yt-stats {
+	margin-top: 8px;
+	padding-top: 4px;
+	border-top: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
 }
 
-html[dark] ytd-watch-metadata .yt-engagement-stats,
-[dark] ytd-watch-metadata .yt-engagement-stats {
-  border-top-color: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+html[dark] ytd-watch-metadata .yt-stats,
+[dark] ytd-watch-metadata .yt-stats {
+	border-top-color: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+}
+
+
+/* Compact design adjustments for laptop screens */
+@media (max-width: 1536px) {
+	#secondary .yt-stats {
+		gap: 6px;
+		font-size: 1.1rem;
+		line-height: 1.5rem;
+	}
+
+	#secondary .yt-stats-item {
+		gap: 2px;
+		padding: 1px 3px;
+	}
+
+	#secondary .yt-stats-icon {
+		width: 12px;
+		height: 12px;
+	}
+
+	#secondary .yt-stats-value {
+		font-size: 1.1rem;
+		line-height: 1.4rem;
+	}
+
+	#secondary ytd-watch-metadata .yt-stats {
+		margin-top: 4px;
+		padding-top: 2px;
+	}
 }
